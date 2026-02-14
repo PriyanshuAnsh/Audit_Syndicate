@@ -22,7 +22,10 @@ def buy(payload: TradeRequest, user: User = Depends(current_user), db: Session =
     if not asset:
         raise HTTPException(status_code=404, detail="asset not found")
 
-    price, _ = quote_for_asset(asset)
+    try:
+        price, _ = quote_for_asset(asset)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     cost = round(price * payload.quantity, 2)
 
     wallet = db.query(Wallet).filter(Wallet.user_id == user.id).one()
@@ -76,7 +79,10 @@ def sell(payload: TradeRequest, user: User = Depends(current_user), db: Session 
     if not position or position.quantity < payload.quantity:
         raise HTTPException(status_code=400, detail="insufficient quantity")
 
-    price, _ = quote_for_asset(asset)
+    try:
+        price, _ = quote_for_asset(asset)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     proceeds = round(price * payload.quantity, 2)
 
     wallet = db.query(Wallet).filter(Wallet.user_id == user.id).one()
@@ -102,4 +108,7 @@ def sell(payload: TradeRequest, user: User = Depends(current_user), db: Session 
 
 @router.get("/portfolio", response_model=PortfolioOut)
 def portfolio(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return portfolio_snapshot(db, user.id)
+    try:
+        return portfolio_snapshot(db, user.id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
