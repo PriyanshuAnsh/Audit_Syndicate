@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+node_modules/
+.next/
+apps/api/investipet.db
+investipet.db
+.DS_Store
