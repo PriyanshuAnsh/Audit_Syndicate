@@ -15,6 +15,9 @@ router = APIRouter(tags=["trading"])
 
 @router.post("/trades/buy")
 def buy(payload: TradeRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not float(payload.quantity).is_integer():
+        raise HTTPException(status_code=400, detail="quantity must be an integer")
+    
     asset = db.query(Asset).filter(Asset.symbol == payload.symbol.upper()).first()
     if not asset:
         raise HTTPException(status_code=404, detail="asset not found")
@@ -59,6 +62,8 @@ def buy(payload: TradeRequest, user: User = Depends(current_user), db: Session =
 
 @router.post("/trades/sell")
 def sell(payload: TradeRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not float(payload.quantity).is_integer():
+        raise HTTPException(status_code=400, detail="quantity must be an integer")
     asset = db.query(Asset).filter(Asset.symbol == payload.symbol.upper()).first()
     if not asset:
         raise HTTPException(status_code=404, detail="asset not found")
