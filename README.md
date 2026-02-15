@@ -1,3 +1,6 @@
+# Project Description
+Team up with InvestiPet and learn healthy financial habits. Paper trade and learn to level up your InvestiPet.
+
 # InvestiPet MVP
 
 Monorepo containing:
