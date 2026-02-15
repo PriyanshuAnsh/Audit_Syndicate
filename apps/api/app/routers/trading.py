@@ -15,14 +15,22 @@ router = APIRouter(tags=["trading"])
 
 @router.post("/trades/buy")
 def buy(payload: TradeRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not float(payload.quantity).is_integer():
+        raise HTTPException(status_code=400, detail="quantity must be an integer")
+    
     asset = db.query(Asset).filter(Asset.symbol == payload.symbol.upper()).first()
     if not asset:
         raise HTTPException(status_code=404, detail="asset not found")
 
-    price, _ = quote_for_asset(asset)
+    try:
+        price, _ = quote_for_asset(asset)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     cost = round(price * payload.quantity, 2)
 
     wallet = db.query(Wallet).filter(Wallet.user_id == user.id).one()
+
     if wallet.cash_balance < cost:
         raise HTTPException(status_code=400, detail="insufficient cash")
 
@@ -31,6 +39,7 @@ def buy(payload: TradeRequest, user: User = Depends(current_user), db: Session =
         .filter(Position.user_id == user.id, Position.symbol == asset.symbol)
         .first()
     )
+
     if not position:
         position = Position(user_id=user.id, symbol=asset.symbol, quantity=0, avg_cost=0)
         db.add(position)
@@ -39,10 +48,19 @@ def buy(payload: TradeRequest, user: User = Depends(current_user), db: Session =
     total_old = position.quantity * position.avg_cost
     total_new = total_old + cost
     position.quantity += payload.quantity
-    position.avg_cost = total_new / position.quantity
+    position.avg_cost = round(total_new / position.quantity, 4)
 
     wallet.cash_balance = round(wallet.cash_balance - cost, 2)
-    db.add(Trade(user_id=user.id, symbol=asset.symbol, side="buy", qty=payload.quantity, price=price))
+
+    db.add(
+        Trade(
+            user_id=user.id,
+            symbol=asset.symbol,
+            side="buy",
+            qty=payload.quantity,
+            price=price,
+        )
+    )
 
     grant_reward(
         db,
@@ -53,12 +71,22 @@ def buy(payload: TradeRequest, user: User = Depends(current_user), db: Session =
         "trade",
         f"buy:{asset.symbol}:{uuid4().hex}",
     )
+
     db.commit()
-    return {"ok": True, "symbol": asset.symbol, "price": price, "quantity": payload.quantity}
+
+    return {
+        "ok": True,
+        "symbol": asset.symbol,
+        "price": price,
+        "quantity": payload.quantity,
+        "remaining_cash": wallet.cash_balance,
+    }
 
 
 @router.post("/trades/sell")
 def sell(payload: TradeRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not float(payload.quantity).is_integer():
+        raise HTTPException(status_code=400, detail="quantity must be an integer")
     asset = db.query(Asset).filter(Asset.symbol == payload.symbol.upper()).first()
     if not asset:
         raise HTTPException(status_code=404, detail="asset not found")
@@ -71,7 +99,10 @@ def sell(payload: TradeRequest, user: User = Depends(current_user), db: Session 
     if not position or position.quantity < payload.quantity:
         raise HTTPException(status_code=400, detail="insufficient quantity")
 
-    price, _ = quote_for_asset(asset)
+    try:
+        price, _ = quote_for_asset(asset)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     proceeds = round(price * payload.quantity, 2)
 
     wallet = db.query(Wallet).filter(Wallet.user_id == user.id).one()
@@ -97,4 +128,7 @@ def sell(payload: TradeRequest, user: User = Depends(current_user), db: Session 
 
 @router.get("/portfolio", response_model=PortfolioOut)
 def portfolio(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    return portfolio_snapshot(db, user.id)
+    try:
+        return portfolio_snapshot(db, user.id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

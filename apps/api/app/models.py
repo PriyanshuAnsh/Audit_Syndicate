@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import (
     Boolean,
@@ -15,13 +15,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
 
+def utcnow() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class Wallet(Base):
@@ -43,6 +47,11 @@ class Pet(Base):
     xp_current: Mapped[int] = mapped_column(Integer, default=0)
     stage: Mapped[str] = mapped_column(String, default="egg")
     species: Mapped[str] = mapped_column(String, default="sproutfox")
+    
+    # NEW FIELDS
+    hunger: Mapped[int] = mapped_column(Integer, default=100)
+    last_hunger_tick: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    
 
 
 class Asset(Base):
@@ -64,7 +73,7 @@ class Position(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     symbol: Mapped[str] = mapped_column(ForeignKey("assets.symbol"), index=True)
-    quantity: Mapped[float] = mapped_column(Float, default=0.0)
+    quantity: Mapped[int] = mapped_column(Integer, default=0)
     avg_cost: Mapped[float] = mapped_column(Float, default=0.0)
 
 
@@ -77,7 +86,7 @@ class Trade(Base):
     side: Mapped[str] = mapped_column(String)
     qty: Mapped[float] = mapped_column(Float)
     price: Mapped[float] = mapped_column(Float)
-    executed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    executed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class Lesson(Base):
@@ -89,6 +98,18 @@ class Lesson(Base):
     quiz_json: Mapped[dict] = mapped_column(JSON)
     reward_xp: Mapped[int] = mapped_column(Integer)
     reward_coins: Mapped[int] = mapped_column(Integer)
+
+
+class LessonQuestion(Base):
+    __tablename__ = "lesson_questions"
+    __table_args__ = (UniqueConstraint("lesson_id", "question_key", name="uq_lesson_question_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id"), index=True)
+    question_key: Mapped[str] = mapped_column(String, index=True)
+    question_text: Mapped[str] = mapped_column(String)
+    options_json: Mapped[list] = mapped_column(JSON)
+    answer: Mapped[str] = mapped_column(String)
 
 
 class LessonProgress(Base):
@@ -121,7 +142,7 @@ class Inventory(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("shop_items.id"))
-    acquired_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     equipped: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
@@ -135,7 +156,7 @@ class RewardEvent(Base):
     coin_delta: Mapped[int] = mapped_column(Integer)
     ref_type: Mapped[str] = mapped_column(String)
     ref_id: Mapped[str] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class RefreshToken(Base):
@@ -145,4 +166,4 @@ class RefreshToken(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
