@@ -177,8 +177,8 @@ export default function TradePage() {
                 setQuantity(e.target.value)
               }
               type="number"
-              min="0.0001"
-              step="0.0001"
+              min="1"
+              step="1"
             />
 
             <div className="mb-3 rounded-xl bg-white/80 p-3 text-sm">
