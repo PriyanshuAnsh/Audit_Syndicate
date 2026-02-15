@@ -26,6 +26,8 @@ def me(user: User = Depends(current_user), db: Session = Depends(get_db)):
             "level": pet.level,
             "xp_current": pet.xp_current,
             "stage": pet.stage,
+            "equipped_items": pet_equipped_items(db, user.id),
+            "hunger": pet.hunger,
             # "equipped_items": pet_equipped_items(db, user.id),
             "equipped_items": [],
         },
