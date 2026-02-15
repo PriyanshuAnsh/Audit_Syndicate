@@ -211,16 +211,15 @@ export default function TradePage() {
 
             {insufficientShares && (
               <p className="mt-2 text-sm text-rose-600">
-                ❌ You cannot sell {quantityNumber} {symbol.toUpperCase()}. Your
-                current position is {currentPosition} shares.
+                Sell order rejected: insufficient shares. You only own{" "}
+                {currentPosition} {symbol.toUpperCase()}.
               </p>
             )}
 
             {insufficientFunds && (
               <p className="mt-2 text-sm text-rose-600">
-                ❌ You cannot buy {quantityNumber} {symbol.toUpperCase()}.
-                Required: ${notional.toFixed(2)} | Available: $
-                {availableCash.toFixed(2)}
+                Buy order rejected: insufficient funds. Required $
+                {notional.toFixed(2)}, available ${availableCash.toFixed(2)}.
               </p>
             )}
 
