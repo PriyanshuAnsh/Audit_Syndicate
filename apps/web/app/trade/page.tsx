@@ -24,6 +24,11 @@ export default function TradePage() {
     queryFn: () => api("/me"),
   });
 
+  const portfolio = useQuery({
+    queryKey: ["portfolio"],
+    queryFn: () => api("/portfolio"),
+  });
+
   const [symbol, setSymbol] = useState("AAPL");
   const [quantity, setQuantity] = useState("1");
   const [lastAction, setLastAction] = useState<"buy" | "sell" | null>(null);
@@ -49,16 +54,27 @@ export default function TradePage() {
   const selectedQuote = useMemo(
     () =>
       (quotes.data || []).find(
-        (quote) => quote.symbol === symbol.toUpperCase()
+        (quote) => quote.symbol === symbol.toUpperCase(),
       ),
-    [quotes.data, symbol]
+    [quotes.data, symbol],
   );
 
   const quantityNumber = Number(quantity) || 0;
   const notional = (selectedQuote?.price || 0) * quantityNumber;
   const availableCash = me.data?.cash_balance ?? 0;
+
   const insufficientFunds = notional > availableCash;
-  const isLargeTrade = notional > availableCash * 0.5;
+  const isLargeTrade = pendingSide === "buy" && notional > availableCash * 0.5;
+
+  const positions = Array.isArray(portfolio.data)
+    ? portfolio.data
+    : (portfolio.data?.positions ?? []);
+
+  const currentPosition =
+    positions.find((p: any) => p.symbol === symbol.toUpperCase())?.quantity ??
+    0;
+
+  const insufficientShares = quantityNumber > currentPosition;
 
   const isInvalid = !selectedQuote || quantityNumber <= 0;
 
@@ -82,9 +98,7 @@ export default function TradePage() {
             <div className="rounded-xl bg-white/80 p-3">
               <p className="text-slate-500">Last Price</p>
               <p className="text-lg font-semibold">
-                {selectedQuote
-                  ? `$${selectedQuote.price.toFixed(2)}`
-                  : "--"}
+                {selectedQuote ? `$${selectedQuote.price.toFixed(2)}` : "--"}
               </p>
             </div>
           </div>
@@ -92,7 +106,6 @@ export default function TradePage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-        {/* LEFT SIDE */}
         <div className="glass overflow-hidden">
           <div className="border-b border-slate-200/70 bg-white/70 px-4 py-3">
             <h2 className="text-lg font-semibold">Market Watchlist</h2>
@@ -110,27 +123,20 @@ export default function TradePage() {
               </thead>
               <tbody>
                 {(quotes.data || []).map((quote) => {
-                  const isActive =
-                    quote.symbol === symbol.toUpperCase();
+                  const isActive = quote.symbol === symbol.toUpperCase();
                   return (
                     <tr
                       key={quote.symbol}
                       className={`border-t border-slate-200/70 ${
-                        isActive
-                          ? "bg-emerald-50/70"
-                          : "bg-transparent"
+                        isActive ? "bg-emerald-50/70" : "bg-transparent"
                       }`}
                     >
                       <td className="px-4 py-3 font-semibold">
                         {quote.symbol}
                       </td>
-                      <td className="px-4 py-3">
-                        ${quote.price.toFixed(2)}
-                      </td>
+                      <td className="px-4 py-3">${quote.price.toFixed(2)}</td>
                       <td className="px-4 py-3 text-slate-600">
-                        {quote.symbol.length <= 4
-                          ? "Stock"
-                          : "Crypto"}
+                        {quote.symbol.length <= 4 ? "Stock" : "Crypto"}
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -139,9 +145,7 @@ export default function TradePage() {
                               ? "rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
                               : "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold"
                           }
-                          onClick={() =>
-                            setSymbol(quote.symbol)
-                          }
+                          onClick={() => setSymbol(quote.symbol)}
                         >
                           {isActive ? "Selected" : "Select"}
                         </button>
@@ -154,40 +158,29 @@ export default function TradePage() {
           </div>
         </div>
 
-        {/* RIGHT SIDE */}
         <div className="space-y-4">
           <div className="glass p-4">
-            <h2 className="mb-3 text-lg font-semibold">
-              Order Ticket
-            </h2>
+            <h2 className="mb-3 text-lg font-semibold">Order Ticket</h2>
 
             <input
               className="input mb-3"
               value={symbol}
-              onChange={(e) =>
-                setSymbol(e.target.value.toUpperCase())
-              }
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
             />
 
             <input
               className="input mb-3"
               value={quantity}
-              onChange={(e) =>
-                setQuantity(e.target.value)
-              }
+              onChange={(e) => setQuantity(e.target.value)}
               type="number"
               min="1"
             />
 
             <div className="mb-3 rounded-xl bg-white/80 p-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">
-                  Estimated Notional
-                </span>
+                <span className="text-slate-500">Estimated Notional</span>
                 <span className="font-semibold">
-                  {notional > 0
-                    ? `$${notional.toFixed(2)}`
-                    : "--"}
+                  {notional > 0 ? `$${notional.toFixed(2)}` : "--"}
                 </span>
               </div>
             </div>
@@ -205,7 +198,7 @@ export default function TradePage() {
               </button>
 
               <button
-                disabled={isInvalid}
+                disabled={isInvalid || insufficientShares}
                 className="flex-1 rounded-xl bg-rose-700 px-4 py-2 font-medium text-white transition hover:bg-rose-800 disabled:bg-slate-400"
                 onClick={() => {
                   setPendingSide("sell");
@@ -216,23 +209,29 @@ export default function TradePage() {
               </button>
             </div>
 
+            {insufficientShares && (
+              <p className="mt-2 text-sm text-rose-600">
+                ❌ You cannot sell {quantityNumber} {symbol.toUpperCase()}. Your
+                current position is {currentPosition} shares.
+              </p>
+            )}
+
             {insufficientFunds && (
               <p className="mt-2 text-sm text-rose-600">
-                Insufficient funds. Available: $
+                ❌ You cannot buy {quantityNumber} {symbol.toUpperCase()}.
+                Required: ${notional.toFixed(2)} | Available: $
                 {availableCash.toFixed(2)}
               </p>
             )}
 
             {trade.isPending && (
-              <p className="mt-2 text-sm text-slate-600">
-                Submitting order...
-              </p>
+              <p className="mt-2 text-sm text-slate-600">Submitting order...</p>
             )}
 
             {trade.isSuccess && lastAction && (
               <p className="mt-2 text-sm text-emerald-700">
-                Order filled: {lastAction.toUpperCase()}{" "}
-                {quantityNumber} {symbol.toUpperCase()}.
+                Order filled: {lastAction.toUpperCase()} {quantityNumber}{" "}
+                {symbol.toUpperCase()}.
               </p>
             )}
           </div>
@@ -249,16 +248,13 @@ export default function TradePage() {
             <p className="text-sm text-slate-700">
               {pendingSide.toUpperCase()} {quantityNumber}{" "}
               {symbol.toUpperCase()} for{" "}
-              {notional > 0
-                ? `$${notional.toFixed(2)}`
-                : "--"}
-              ?
+              {notional > 0 ? `$${notional.toFixed(2)}` : "--"}?
             </p>
 
             {isLargeTrade && (
               <div className="mt-3 rounded-lg bg-yellow-100 p-3 text-sm text-yellow-800">
-                ⚠ This order uses more than 50% of your available
-                capital. Consider diversification.
+                ⚠ This order uses more than 50% of your available capital.
+                Consider diversification.
               </div>
             )}
 
@@ -274,6 +270,9 @@ export default function TradePage() {
               </button>
 
               <button
+                disabled={
+                  pendingSide === "buy" ? insufficientFunds : insufficientShares
+                }
                 className={`flex-1 rounded-xl px-4 py-2 font-medium text-white ${
                   pendingSide === "buy"
                     ? "bg-emerald-700 hover:bg-emerald-800"
