@@ -106,7 +106,7 @@ export default function TradePage() {
             <input className="input mb-3" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} placeholder="AAPL" />
 
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Quantity</label>
-            <input className="input mb-3" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" type="number" min="0.0001" step="0.0001" />
+            <input className="input mb-3" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1" type="number" min="1" step="1" />
 
             <div className="mb-3 rounded-xl bg-white/80 p-3 text-sm">
               <div className="flex items-center justify-between">
